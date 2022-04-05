@@ -3,6 +3,7 @@ from .sql_connectors import MsSqlConnector, MySqlConnector, SQLiteConnection, Or
 from .cql_connector import CqlConnector, CqlConnection
 from .mongo_connector import MongoConnector, MongoConnection
 from .redis_connector import RedisConnector, RedisConnection, RedisClusterConnection
+from .gcs_connector import GcsConnector, GcsConnection
 
 __all__ = [
     'SimpleHashConnector',
@@ -31,5 +32,8 @@ __all__ = [
 
     'RedisConnector',
     'RedisConnection',
-    'RedisClusterConnection'
+    'RedisClusterConnection',
+
+    'GcsConnector',
+    'GcsConnection'
 ]

@@ -1,0 +1,2 @@
+/home/ramir/dev/junk/rgsync/dist/rgsync-1.2.0-py3-none-any.whl
+google-cloud-storage
