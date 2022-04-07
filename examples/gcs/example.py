@@ -8,6 +8,8 @@ import traceback
 BUCKET_NAME = "screenshots-raz-unbiased"
 EXP_TIME_SEC = 60*60*24*3 # 3 days
 
+skipNotification = False
+
 class GcsConnection:
 	def __init__(self, bucketName):
 		WriteBehindLog("GcsConnection:__init__: entered")
@@ -144,7 +146,9 @@ def CreateAddToStreamFunction(self):
 		print(r)
 		print(type(r))
 
-
+		if skipNotification:
+			print("CreateAddToStreamFunction: skipping...")
+		
 		data = []
 		data.append(['key', r['key']])
 		data.append(['value', r['value']])
@@ -271,7 +275,16 @@ async def ReadThroughHandler(data: dict):
 	# and setting expiration to EXP_TIME_SEC
 
 	print(f"HERE: type={type(contents)}")
-	exec_ret = execute("SET", key, b"#skip#"+contents, "ex", EXP_TIME_SEC)
+	
+	# setting skipNotification to True so that the CreateAddToStreamFunction will know to ignore it.
+	# TODO: this wasn't tested yet...
+	# according to answer I got on discord this code is under redis lock and CreateAddToStreamFunction is called
+	# under it
+	global skipNotification
+	with atomic():
+		skipNotification = True
+		exec_ret = execute("SET", key, contents, "ex", EXP_TIME_SEC)
+		skipNotification = False
 
 	# if all well, this call returns the string "OK"
 	WriteBehindLog(f"exec_ret is: {exec_ret}. contents is: {contents}")
@@ -285,7 +298,7 @@ async def ReadThroughHandler(data: dict):
 
 	return data
 
-GB('KeysReader').map(ReadThroughHandler).register(commands=['get'], eventTypes=['keymiss'], mode="async_local)
+GB('KeysReader').map(ReadThroughHandler).register(commands=['get'], eventTypes=['keymiss'], mode="async_local")
 
 
 # TODO:
@@ -296,7 +309,7 @@ GB('KeysReader').map(ReadThroughHandler).register(commands=['get'], eventTypes=[
 #  retry policy
 #  batch handling
 #  handle only last entry with the same key (multiple set operations on the same key) - merge them or take the last one?
-#  call from read-through to write-behind due to "set expiration"
+#  call from read-through to write-behind due to "set expiration" need to be skipped - implemented with the skipNotificatio. Not teste yet...
 # exceptions handling if needed, maybe for debugging
 # errors handling in execute and in override_reply
 # read from configuration
@@ -304,6 +317,12 @@ GB('KeysReader').map(ReadThroughHandler).register(commands=['get'], eventTypes=[
 # metrics
 # liveness?
 
+# Here is what I got back on discord regarding loading pythin without deleting first - Not tested yet
+# Yes, you can just not specify the requirement when you send the RedisGears function and install all the requirements and manage them
+# yourself (instead of letting RedisGears manage it for you), you just need to see the path of the python interpreter RedisGears works with and
+# manually install everything you need, you can also upgrade the code manually whenever you want. Notice that a restart will
+# still be require but there will be no need to delete anything
+# (see this reply on how to find the interpreter path: https://discord.com/channels/697882427875393627/732335407043444797/958980866640584734)
 
 # loading redis server:
 # ➜  /home/ramir/dev/junk/RedisGears git:(master) ✗ redis-server --loadmodule /home/ramir/dev/junk/RedisGears/bin/linux-x64-release/redisgears.so Plugin /home/ramir/dev/junk/RedisGears/bin/linux-x64-release/gears_python/gears_python.so
